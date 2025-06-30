@@ -146,7 +146,7 @@ services:
     container_name: csharp-client
     build:
       context: ./clients/csharp
-      dockerfile: Dockerfile.basic  # Change to Dockerfile.basic for basic client
+      dockerfile: Dockerfile.interactive  # Change to Dockerfile.basic for basic client
     networks:
       - temporal-network
     environment:
