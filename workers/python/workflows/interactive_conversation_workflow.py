@@ -38,25 +38,70 @@ class InteractiveConversationWorkflow:
         self.continue_conversation = True
         self.latest_user_feedback: Optional[UserFeedback] = None
         self.conversation_history: List[ConversationTurn] = []
-        self.ollama_base_url = "http://host.docker.internal:11434"
-        self.redis_url = "redis://redis:6379"
     
     @workflow.run
-    async def run(self, initial_query: str, thread_id: str, model_name: str = "llama3.2") -> Dict[str, Any]:
+    async def run(
+        self, 
+        initial_query: str, 
+        thread_id: str, 
+        postgres_host: str,
+        postgres_port: str,
+        postgres_db: str,
+        postgres_user: str,
+        postgres_password: str,
+        ollama_base_url: str,
+        model_name: str,
+        temperature: float,
+        redis_url: str
+    ) -> Dict[str, Any]:
         """
         Start an interactive conversation that continues until user satisfaction.
+        
+        All configuration parameters are required and must be provided by the client.
         
         Args:
             initial_query: The first question to ask the agent
             thread_id: Thread ID for conversation memory persistence  
-            model_name: Ollama model to use
+            postgres_host: PostgreSQL host (required)
+            postgres_port: PostgreSQL port (required)
+            postgres_db: PostgreSQL database name (required)
+            postgres_user: PostgreSQL username (required)
+            postgres_password: PostgreSQL password (required)
+            ollama_base_url: Ollama server URL (required)
+            model_name: Ollama model to use (required)
+            temperature: Model temperature (required)
+            redis_url: Redis connection URL (required)
             
         Returns:
             Final conversation summary
         """
+        
+        # Validate all required parameters are provided
+        required_params = {
+            'initial_query': initial_query,
+            'thread_id': thread_id,
+            'postgres_host': postgres_host,
+            'postgres_port': postgres_port,
+            'postgres_db': postgres_db,
+            'postgres_user': postgres_user,
+            'postgres_password': postgres_password,
+            'ollama_base_url': ollama_base_url,
+            'model_name': model_name,
+            'redis_url': redis_url
+        }
+        
+        missing_params = [name for name, value in required_params.items() if not value]
+        if missing_params:
+            raise ValueError(f"Missing required workflow parameters: {', '.join(missing_params)}")
+        
+        if temperature is None:
+            raise ValueError("Missing required workflow parameter: temperature")
+        
         current_query = initial_query
         
         workflow.logger.info(f"Starting interactive conversation with query: {initial_query}")
+        workflow.logger.info(f"Using model: {model_name} at {ollama_base_url}")
+        workflow.logger.info(f"Database: {postgres_user}@{postgres_host}:{postgres_port}/{postgres_db}")
         
         # Main conversation loop - continues until user indicates they're done
         while self.continue_conversation:
@@ -65,7 +110,7 @@ class InteractiveConversationWorkflow:
             # Execute the LangGraph agent activity
             result = await workflow.execute_activity(
                 "process_with_agent",
-                args=[current_query, thread_id, self.ollama_base_url, model_name, 0.0, self.redis_url],
+                args=[current_query, thread_id, ollama_base_url, model_name, temperature, redis_url, postgres_host, postgres_port, postgres_db, postgres_user, postgres_password],
                 start_to_close_timeout=timedelta(minutes=10),  # Allow time for complex reasoning and database queries
             )
             

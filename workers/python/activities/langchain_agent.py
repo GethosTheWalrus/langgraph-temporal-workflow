@@ -10,6 +10,15 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langchain_core.tools import tool
 
+# Global database configuration for tools
+_db_config = {
+    'host': 'localhost',
+    'port': '5432',
+    'database': 'postgres',
+    'user': 'postgres',
+    'password': 'password'
+}
+
 
 @tool
 def think_step_by_step(problem: str) -> str:
@@ -55,17 +64,10 @@ async def get_table_schema(table_name: str) -> str:
         - get_table_schema("users") - Shows columns in the users table
     """
     try:
-        import os
         import json
         
-        # Database connection parameters
-        db_config = {
-            'host': os.getenv('POSTGRES_HOST', 'localhost'),
-            'port': os.getenv('POSTGRES_PORT', '5432'),
-            'database': os.getenv('POSTGRES_DB', 'postgres'),
-            'user': os.getenv('POSTGRES_USER', 'postgres'),
-            'password': os.getenv('POSTGRES_PASSWORD', 'password')
-        }
+        # Use global database configuration set by the activity
+        db_config = _db_config
         
         try:
             import asyncpg
@@ -148,17 +150,8 @@ async def query_database(sql: str) -> str:
                 return f"Error: Query contains forbidden keyword '{keyword.strip()}'. Only read-only operations are allowed."
         
         try:
-            # Try to use asyncpg for database connection
-            import os
-            
-            # Database connection parameters (you'll need to configure these)
-            db_config = {
-                'host': os.getenv('POSTGRES_HOST', 'localhost'),
-                'port': os.getenv('POSTGRES_PORT', '5432'),
-                'database': os.getenv('POSTGRES_DB', 'postgres'),
-                'user': os.getenv('POSTGRES_USER', 'postgres'),
-                'password': os.getenv('POSTGRES_PASSWORD', 'password')
-            }
+            # Use global database configuration set by the activity
+            db_config = _db_config
             
             try:
                 import asyncpg
@@ -226,31 +219,74 @@ async def query_database(sql: str) -> str:
 @activity.defn
 async def process_with_agent(
     messages: str,  # Can be a single message or conversation
-    thread_id: Optional[str] = None,
-    ollama_base_url: str = "http://host.docker.internal:11434",
-    model_name: str = "llama3.2",
-    temperature: float = 0.0,
-    redis_url: str = "redis://redis:6379"
+    thread_id: Optional[str],
+    ollama_base_url: str,
+    model_name: str,
+    temperature: float,
+    redis_url: str,
+    postgres_host: str,
+    postgres_port: str,
+    postgres_db: str,
+    postgres_user: str,
+    postgres_password: str
 ) -> Dict[str, Any]:
     """
     Simple Temporal activity that uses LangGraph agent to process messages.
     LangGraph handles all the conversation state, memory, and complexity for us.
     Uses Redis for distributed state persistence across worker instances.
     
+    All configuration parameters are required and must be provided by the workflow.
+    
     Args:
         messages: The user's message(s) - can be single query or part of conversation
         thread_id: Optional thread ID for conversation memory (LangGraph manages this)
-        ollama_base_url: Ollama server URL
-        model_name: Ollama model to use
-        temperature: Model temperature
-        redis_url: Redis connection URL for persistent state storage
+        ollama_base_url: Ollama server URL (required)
+        model_name: Ollama model to use (required)
+        temperature: Model temperature (required)
+        redis_url: Redis connection URL for persistent state storage (required)
+        postgres_host: PostgreSQL host (required)
+        postgres_port: PostgreSQL port (required)
+        postgres_db: PostgreSQL database (required)
+        postgres_user: PostgreSQL user (required)
+        postgres_password: PostgreSQL password (required)
         
     Returns:
         Dict with the agent's response and metadata
     """
     
+    # Validate all required parameters are provided
+    required_params = {
+        'messages': messages,
+        'ollama_base_url': ollama_base_url,
+        'model_name': model_name,
+        'redis_url': redis_url,
+        'postgres_host': postgres_host,
+        'postgres_port': postgres_port,
+        'postgres_db': postgres_db,
+        'postgres_user': postgres_user,
+        'postgres_password': postgres_password
+    }
+    
+    missing_params = [name for name, value in required_params.items() if not value]
+    if missing_params:
+        raise ValueError(f"Missing required parameters: {', '.join(missing_params)}")
+    
+    if temperature is None:
+        raise ValueError("Missing required parameter: temperature")
+    
+    # Set global database configuration for tools
+    global _db_config
+    _db_config = {
+        'host': postgres_host,
+        'port': postgres_port,
+        'database': postgres_db,
+        'user': postgres_user,
+        'password': postgres_password
+    }
+    
     try:
         activity.logger.info(f"Processing with agent (model: {model_name}, thread: {thread_id})")
+        activity.logger.info(f"Database: {postgres_user}@{postgres_host}:{postgres_port}/{postgres_db}")
         
         # Set up model with timeout handling
         activity.logger.info(f"Creating Ollama model: {model_name} at {ollama_base_url}")

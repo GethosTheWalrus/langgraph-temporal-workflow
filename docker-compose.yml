@@ -116,12 +116,6 @@ services:
     depends_on:
       - redis
       - app-postgres
-    environment:
-      - POSTGRES_HOST=app-postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=appdb
-      - POSTGRES_USER=appuser
-      - POSTGRES_PASSWORD=apppassword
     profiles:
       - workers
 
@@ -133,6 +127,19 @@ services:
       dockerfile: Dockerfile
     networks:
       - temporal-network
+    environment:
+      # Database configuration (clients pass these to workflows)
+      - POSTGRES_HOST=app-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD=apppassword
+      # Ollama configuration (clients pass these to workflows)
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434 # upate this to your Ollama host
+      - OLLAMA_MODEL_NAME=qwen3:8b
+      - OLLAMA_TEMPERATURE=0.0
+      # Redis configuration
+      - REDIS_URL=redis://redis:6379
     profiles:
       - clients
   csharp-client:
@@ -142,6 +149,19 @@ services:
       dockerfile: Dockerfile.interactive  # Change to Dockerfile.basic for basic client
     networks:
       - temporal-network
+    environment:
+      # Database configuration (clients pass these to workflows)
+      - POSTGRES_HOST=app-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD=apppassword
+      # Ollama configuration (clients pass these to workflows)
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434 # upate this to your Ollama host
+      - OLLAMA_MODEL_NAME=qwen3:8b
+      - OLLAMA_TEMPERATURE=0.0
+      # Redis configuration
+      - REDIS_URL=redis://redis:6379
     profiles:
       - clients
 

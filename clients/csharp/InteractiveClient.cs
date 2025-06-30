@@ -21,16 +21,30 @@ class InteractiveConversationClient
         var sessionId = $"{timestamp}-{uuid}"; // Combined timestamp + UUID
         var threadId = $"thread-{sessionId}";  // Unique Redis conversation thread
         var workflowId = $"interactive-conversation-{sessionId}";  // Unique workflow instance
-        var modelName = "qwen3:8b";
-
+        // Get configuration from environment variables (with defaults)
+        var postgresHost = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "app-postgres";
+        var postgresPort = Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432";
+        var postgresDb = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "appdb";
+        var postgresUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "appuser";
+        var postgresPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "apppassword";
+        var ollamaBaseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL") ?? "http://172.17.0.1:11434";
+        var modelName = Environment.GetEnvironmentVariable("OLLAMA_MODEL_NAME") ?? "qwen3:8b";
+        var temperature = float.Parse(Environment.GetEnvironmentVariable("OLLAMA_TEMPERATURE") ?? "0.0");
+        var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis://redis:6379";
+        
         Console.WriteLine($"🔄 Starting workflow with query: {initialQuery}");
         Console.WriteLine($"🧠 Thread ID: {threadId}");
+        Console.WriteLine($"🗄️ Database: {postgresUser}@{postgresHost}:{postgresPort}/{postgresDb}");
+        Console.WriteLine($"🤖 Model: {modelName}");
+        Console.WriteLine($"🌐 Ollama URL: {ollamaBaseUrl}");
+        Console.WriteLine($"🌡️ Temperature: {temperature}");
         Console.WriteLine();
 
         // Start the interactive conversation workflow
+        // Pass all configuration as parameters for deterministic execution
         var handle = await client.StartWorkflowAsync(
             "InteractiveConversationWorkflow",
-            new object[] { initialQuery, threadId, modelName },
+            new object[] { initialQuery, threadId, postgresHost, postgresPort, postgresDb, postgresUser, postgresPassword, ollamaBaseUrl, modelName, temperature, redisUrl },
             new WorkflowOptions
             {
                 Id = workflowId,
