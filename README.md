@@ -23,7 +23,7 @@ docker compose up --build -d csharp-client
 
 To chat with the agent, send a signal via the Temporal [UI](http://localhost:8080)
 ```json
-[true, "Why should I use Temporal for durable workflow execution?]
+[true, "Why should I use Temporal for durable workflow execution?"]
 ```
 
 To complete the workflow
