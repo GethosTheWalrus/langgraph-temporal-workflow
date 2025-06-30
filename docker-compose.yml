@@ -101,6 +101,7 @@ services:
     volumes:
       - redis_data:/data
     profiles:
+      - temporal
       - workers
       - clients
 
