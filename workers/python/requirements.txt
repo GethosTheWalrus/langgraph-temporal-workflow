@@ -1,0 +1,8 @@
+temporalio
+pytest
+pytest-asyncio
+
+# LangChain/LangGraph dependencies for agent activities
+langchain
+langchain-ollama
+langgraph

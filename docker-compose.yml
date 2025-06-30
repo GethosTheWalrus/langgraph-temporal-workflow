@@ -1,0 +1,109 @@
+services:
+  # Temporal Server Services
+  postgresql:
+    container_name: temporal-postgresql
+    environment:
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_USER: temporal
+    image: postgres:latest
+    networks:
+      - temporal-network
+    ports:
+      - 5432:5432
+    volumes:
+      - postgresdata:/var/lib/postgresql/data
+    profiles:
+      - temporal
+      - workers
+      - csharp
+  temporal:
+    container_name: temporal
+    depends_on:
+      - postgresql
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    image: temporalio/auto-setup:latest
+    networks:
+      - temporal-network
+    ports:
+      - 7233:7233
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
+    profiles:
+      - temporal
+      - workers
+      - csharp
+  temporal-admin-tools:
+    container_name: temporal-admin-tools
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    image: temporalio/admin-tools:latest
+    networks:
+      - temporal-network
+    stdin_open: true
+    tty: true
+    profiles:
+      - temporal
+  temporal-ui:
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:latest
+    networks:
+      - temporal-network
+    ports:
+      - 8080:8080
+    profiles:
+      - temporal
+    
+  # Temporal Worker Services
+  python-worker:
+    container_name: python-worker
+    build:
+      context: ./workers/python
+      dockerfile: Dockerfile
+    networks:
+      - temporal-network
+    profiles:
+      - workers
+
+  # Temporal Clients
+  python-client:
+    container_name: python-client
+    build:
+      context: ./clients/python
+      dockerfile: Dockerfile
+    networks:
+      - temporal-network
+    profiles:
+      - clients
+  csharp-client:
+    container_name: csharp-client
+    build:
+      context: ./clients/csharp
+      dockerfile: Dockerfile
+    networks:
+      - temporal-network
+    profiles:
+      - clients
+
+volumes:
+    postgresdata:
+
+networks:
+  temporal-network:
+    driver: bridge
+    name: temporal-network
