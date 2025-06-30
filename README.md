@@ -4,7 +4,9 @@ This repository demonstrates how to set up a distributed LangGraph ReAct agent u
 
 ## Demo
 
-https://youtu.be/DDVs6I3xeNo
+[![Watch the Demo](https://img.youtube.com/vi/DDVs6I3xeNo/maxresdefault.jpg)](https://youtu.be/DDVs6I3xeNo)
+
+*Click the image above to watch the demo video*
 
 
 ## Quick Start
