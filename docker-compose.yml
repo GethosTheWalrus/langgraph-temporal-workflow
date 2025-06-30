@@ -69,6 +69,20 @@ services:
     profiles:
       - temporal
     
+  # Redis Stack for LangGraph state persistence (includes RedisJSON and RediSearch)
+  redis:
+    container_name: redis
+    image: redis/redis-stack-server:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - temporal-network
+    volumes:
+      - redis_data:/data
+    profiles:
+      - workers
+      - clients
+
   # Temporal Worker Services
   python-worker:
     container_name: python-worker
@@ -77,6 +91,8 @@ services:
       dockerfile: Dockerfile
     networks:
       - temporal-network
+    depends_on:
+      - redis
     profiles:
       - workers
 
@@ -94,7 +110,7 @@ services:
     container_name: csharp-client
     build:
       context: ./clients/csharp
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.interactive  # Change to Dockerfile.basic for basic client
     networks:
       - temporal-network
     profiles:
@@ -102,6 +118,7 @@ services:
 
 volumes:
     postgresdata:
+    redis_data:
 
 networks:
   temporal-network:

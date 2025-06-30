@@ -30,7 +30,7 @@ class AgentWorkflow:
         
         return await workflow.execute_activity(
             process_with_agent,
-            args=[query, thread_id, "http://host.docker.internal:11434", model_name, 0.0],
+            args=[query, thread_id, "http://host.docker.internal:11434", model_name, 0.0, "redis://redis:6379"],
             start_to_close_timeout=timedelta(minutes=2)
         )
 

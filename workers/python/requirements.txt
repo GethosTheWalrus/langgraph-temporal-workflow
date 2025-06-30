@@ -5,4 +5,11 @@ pytest-asyncio
 # LangChain/LangGraph dependencies for agent activities
 langchain
 langchain-ollama
+langchain-openai==0.2.5
+langchain-community==0.3.7
 langgraph
+langgraph-checkpoint-redis
+
+# Redis for distributed LangGraph state persistence
+redis
+aioredis
