@@ -35,7 +35,7 @@ async def main():
     # Pass all configuration as parameters for deterministic execution
     result = await client.execute_workflow(
         "AgentWorkflow",
-        query, thread_id, postgres_host, postgres_port, postgres_db, postgres_user, postgres_password, ollama_base_url, model_name, temperature, redis_url,
+        args=[query, thread_id, postgres_host, postgres_port, postgres_db, postgres_user, postgres_password, ollama_base_url, model_name, temperature, redis_url],
         id="agent-workflow-python",
         task_queue="hello-task-queue"
     )
@@ -55,7 +55,7 @@ async def main():
 
     follow_up_result = await client.execute_workflow(
         "AgentWorkflow",
-        follow_up_query, thread_id, postgres_host, postgres_port, postgres_db, postgres_user, postgres_password, ollama_base_url, model_name, temperature, redis_url,
+        args=[follow_up_query, thread_id, postgres_host, postgres_port, postgres_db, postgres_user, postgres_password, ollama_base_url, model_name, temperature, redis_url],
         id="agent-workflow-followup-python",
         task_queue="hello-task-queue"
     )
