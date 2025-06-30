@@ -2,6 +2,11 @@
 
 This repository demonstrates how to set up a distributed LangGraph ReAct agent utilizing Redis for conversational memory management and Temporal for durable execution of agentic workflows.
 
+## Demo
+
+https://youtu.be/DDVs6I3xeNo
+
+
 ## Quick Start
 
 1. Start the platform services
