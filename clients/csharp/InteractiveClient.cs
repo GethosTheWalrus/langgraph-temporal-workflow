@@ -21,7 +21,7 @@ class InteractiveConversationClient
         var sessionId = $"{timestamp}-{uuid}"; // Combined timestamp + UUID
         var threadId = $"thread-{sessionId}";  // Unique Redis conversation thread
         var workflowId = $"interactive-conversation-{sessionId}";  // Unique workflow instance
-        var modelName = "qwen3:14b";
+        var modelName = "qwen3:8b";
 
         Console.WriteLine($"🔄 Starting workflow with query: {initialQuery}");
         Console.WriteLine($"🧠 Thread ID: {threadId}");

@@ -66,7 +66,7 @@ class InteractiveConversationWorkflow:
             result = await workflow.execute_activity(
                 "process_with_agent",
                 args=[current_query, thread_id, self.ollama_base_url, model_name, 0.0, self.redis_url],
-                start_to_close_timeout=timedelta(seconds=90),  # Give agent time to think
+                start_to_close_timeout=timedelta(minutes=10),  # Allow time for complex reasoning and database queries
             )
             
             # Store this conversation turn

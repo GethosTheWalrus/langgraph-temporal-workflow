@@ -69,6 +69,27 @@ services:
     profiles:
       - temporal
     
+  # Application PostgreSQL Database with init scripts
+  app-postgres:
+    container_name: app-postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppassword
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with Temporal's postgres
+    networks:
+      - temporal-network
+    volumes:
+      - app_postgres_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d/  # Mount init scripts
+    profiles:
+      - temporal
+      - workers
+      - clients
+    restart: unless-stopped
+
   # Redis Stack for LangGraph state persistence (includes RedisJSON and RediSearch)
   redis:
     container_name: redis
@@ -93,6 +114,13 @@ services:
       - temporal-network
     depends_on:
       - redis
+      - app-postgres
+    environment:
+      - POSTGRES_HOST=app-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD=apppassword
     profiles:
       - workers
 
@@ -118,6 +146,7 @@ services:
 
 volumes:
     postgresdata:
+    app_postgres_data:
     redis_data:
 
 networks:
