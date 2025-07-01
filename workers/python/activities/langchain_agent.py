@@ -51,17 +51,18 @@ def analyze_text(text: str, analysis_type: str = "summary") -> str:
 
 
 @tool
-async def get_table_schema(table_name: str) -> str:
+async def get_batch_table_schemas(table_names: list[str]) -> str:
     """
-    Get the schema (column names and data types) for a specific table.
-    Use this before writing complex queries to understand the table structure.
+    Get the schema (column names and data types) for one or more tables.
+    Use this to understand table structure before writing queries or analyzing data.
     
     Args:
-        table_name: Name of the table to inspect (e.g., "users", "orders")
+        table_names: List of table names to inspect (e.g., ["users"], ["users", "orders", "products"])
         
     Examples:
-        - get_table_schema("orders") - Shows columns in the orders table
-        - get_table_schema("users") - Shows columns in the users table
+        - get_batch_table_schemas(["users"]) - Gets schema for just the users table
+        - get_batch_table_schemas(["users", "orders"]) - Gets schemas for users and orders tables
+        - get_batch_table_schemas(["products", "categories", "inventory"]) - Gets schemas for multiple product-related tables
     """
     try:
         import json
@@ -72,43 +73,159 @@ async def get_table_schema(table_name: str) -> str:
         try:
             import asyncpg
             
-            activity.logger.info(f"Getting schema for table: {table_name}")
+            activity.logger.info(f"Getting batch schemas for tables: {', '.join(table_names)}")
             conn = await asyncio.wait_for(asyncpg.connect(**db_config), timeout=10.0)
             
             try:
-                # Get column information for the table
-                schema_query = """
-                SELECT 
-                    column_name, 
-                    data_type, 
-                    is_nullable,
-                    column_default
-                FROM information_schema.columns 
-                WHERE table_name = $1 AND table_schema = 'public'
-                ORDER BY ordinal_position
-                """
+                all_schemas = {}
                 
-                rows = await conn.fetch(schema_query, table_name)
+                for table_name in table_names:
+                    try:
+                        # Get column information for each table
+                        schema_query = """
+                        SELECT 
+                            column_name, 
+                            data_type, 
+                            is_nullable,
+                            column_default
+                        FROM information_schema.columns 
+                        WHERE table_name = $1 AND table_schema = 'public'
+                        ORDER BY ordinal_position
+                        """
+                        
+                        rows = await conn.fetch(schema_query, table_name)
+                        
+                        if not rows:
+                            all_schemas[table_name] = f"Table '{table_name}' not found or has no columns."
+                        else:
+                            # Format as JSON like the individual schema function
+                            schema_info = []
+                            for row in rows:
+                                schema_info.append(dict(row))
+                            all_schemas[table_name] = schema_info
+                            
+                    except Exception as table_error:
+                        all_schemas[table_name] = f"Error getting schema for table '{table_name}': {str(table_error)}"
                 
-                if not rows:
-                    return f"Table '{table_name}' not found or has no columns."
+                # Format the complete result
+                result = "Batch table schemas:\n\n"
+                for table_name, schema_data in all_schemas.items():
+                    result += f"## Table: {table_name}\n"
+                    if isinstance(schema_data, str):
+                        # Error message
+                        result += f"{schema_data}\n\n"
+                    else:
+                        # Actual schema data
+                        formatted_schema = json.dumps(schema_data, indent=2, default=str)
+                        result += f"{formatted_schema}\n\n"
                 
-                # Format as JSON like the MCP server
-                schema_info = []
-                for row in rows:
-                    schema_info.append(dict(row))
-                
-                formatted_schema = json.dumps(schema_info, indent=2, default=str)
-                return f"Schema for table '{table_name}':\n\n{formatted_schema}"
+                return result
                 
             finally:
                 await conn.close()
                 
         except Exception as e:
-            return f"Error getting table schema: {str(e)}"
+            return f"Error getting batch table schemas: {str(e)}"
             
     except Exception as e:
-        return f"Error preparing schema query: {str(e)}"
+        return f"Error preparing batch schema query: {str(e)}"
+
+
+@tool
+async def analyze_table_relationships(table_names: list[str] = None) -> str:
+    """
+    Analyze foreign key relationships between tables in the database.
+    Use this to understand how tables connect to each other.
+    
+    Args:
+        table_names: Optional list of specific tables to analyze. If not provided, analyzes all tables.
+        
+    Examples:
+        - analyze_table_relationships() - Gets all foreign key relationships in the database
+        - analyze_table_relationships(["users", "orders", "order_items"]) - Gets relationships for specific tables
+    """
+    try:
+        import json
+        
+        # Use global database configuration set by the activity
+        db_config = _db_config
+        
+        try:
+            import asyncpg
+            
+            activity.logger.info(f"Analyzing table relationships for: {table_names or 'all tables'}")
+            conn = await asyncio.wait_for(asyncpg.connect(**db_config), timeout=10.0)
+            
+            try:
+                # Query to get foreign key relationships
+                fk_query = """
+                SELECT 
+                    tc.table_name AS source_table,
+                    kcu.column_name AS source_column,
+                    ccu.table_name AS target_table,
+                    ccu.column_name AS target_column,
+                    tc.constraint_name
+                FROM 
+                    information_schema.table_constraints AS tc 
+                    JOIN information_schema.key_column_usage AS kcu
+                      ON tc.constraint_name = kcu.constraint_name
+                      AND tc.table_schema = kcu.table_schema
+                    JOIN information_schema.constraint_column_usage AS ccu
+                      ON ccu.constraint_name = tc.constraint_name
+                      AND ccu.table_schema = tc.table_schema
+                WHERE tc.constraint_type = 'FOREIGN KEY'
+                  AND tc.table_schema = 'public'
+                """
+                
+                # Add table name filter if specified
+                if table_names:
+                    table_names_str = "', '".join(table_names)
+                    fk_query += f" AND (tc.table_name IN ('{table_names_str}') OR ccu.table_name IN ('{table_names_str}'))"
+                
+                fk_query += " ORDER BY tc.table_name, kcu.column_name"
+                
+                rows = await conn.fetch(fk_query)
+                
+                if not rows:
+                    return "No foreign key relationships found for the specified tables."
+                
+                # Format relationships
+                relationships = []
+                for row in rows:
+                    relationships.append(dict(row))
+                
+                # Group by source table for better readability
+                grouped_relationships = {}
+                for rel in relationships:
+                    source_table = rel['source_table']
+                    if source_table not in grouped_relationships:
+                        grouped_relationships[source_table] = []
+                    grouped_relationships[source_table].append(rel)
+                
+                # Format the result
+                result = "Table Relationships Analysis:\n\n"
+                
+                for source_table, rels in grouped_relationships.items():
+                    result += f"## {source_table}\n"
+                    for rel in rels:
+                        result += f"- {rel['source_column']} → {rel['target_table']}.{rel['target_column']}\n"
+                    result += "\n"
+                
+                # Add JSON format for detailed analysis
+                result += "Detailed relationships (JSON):\n"
+                result += json.dumps(relationships, indent=2, default=str)
+                
+                return result
+                
+            finally:
+                await conn.close()
+                
+        except Exception as e:
+            return f"Error analyzing table relationships: {str(e)}"
+            
+    except Exception as e:
+        return f"Error preparing relationship analysis: {str(e)}"
+
 
 
 @tool
@@ -311,7 +428,7 @@ async def process_with_agent(
         
         activity.logger.info("Creating LangGraph agent with reasoning tools...")
         # Provide tools for multi-step reasoning and problem solving
-        tools = [think_step_by_step, analyze_text, get_table_schema, query_database]
+        tools = [think_step_by_step, analyze_text, get_batch_table_schemas, analyze_table_relationships, query_database]
         agent = create_react_agent(model, tools, checkpointer=memory)
         activity.logger.info(f"LangGraph agent created successfully with {len(tools)} reasoning tools")
         
@@ -329,16 +446,114 @@ async def process_with_agent(
         
         # Extract the response (LangGraph gives us a clean format)
         activity.logger.info(f"Result structure: {list(result.keys()) if isinstance(result, dict) else type(result)}")
-        ai_message = result["messages"][-1]
-        response_text = ai_message.content
-        activity.logger.info(f"Extracted response: {response_text[:100]}...")
+        
+        # Extract structured response components
+        try:
+            # Get the final AI response
+            ai_message = result["messages"][-1]
+            final_response = ai_message.content
+            
+            # Extract thinking steps from the conversation
+            thinking_steps = []
+            tool_calls_data = []
+            
+            for i, msg in enumerate(result["messages"]):
+                # Skip the initial user message
+                if i == 0:
+                    continue
+                
+                # Extract thinking steps (usually in <think> tags or standalone reasoning)
+                if hasattr(msg, 'content') and msg.content:
+                    content = msg.content
+                    # Look for thinking patterns
+                    if ('<think>' in content and '</think>' in content):
+                        # Extract content between <think> tags
+                        import re
+                        think_matches = re.findall(r'<think>(.*?)</think>', content, re.DOTALL)
+                        for think_content in think_matches:
+                            thinking_steps.append(think_content.strip())
+                    elif (content.startswith('I need to') or 
+                          content.startswith('Let me') or 
+                          content.startswith('First,') or
+                          'step' in content.lower()[:50]):
+                        # This looks like a reasoning step
+                        # Split into sentences and clean up
+                        sentences = [s.strip() for s in content.split('.') if s.strip()]
+                        thinking_steps.extend(sentences[:3])  # Limit to avoid too much noise
+                
+                # Extract tool calls
+                if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                    for tool_call in msg.tool_calls:
+                        if isinstance(tool_call, dict):
+                            tool_name = tool_call.get('name', 'unknown')
+                            tool_args = tool_call.get('args', {})
+                            tool_id = tool_call.get('id', '')
+                        else:
+                            tool_name = getattr(tool_call, 'name', 'unknown')
+                            tool_args = getattr(tool_call, 'args', {})
+                            tool_id = getattr(tool_call, 'id', '')
+                        
+                        # Find the corresponding tool result
+                        tool_result = None
+                        for j in range(i + 1, len(result["messages"])):
+                            next_msg = result["messages"][j]
+                            if (hasattr(next_msg, 'tool_call_id') and 
+                                getattr(next_msg, 'tool_call_id', '') == tool_id):
+                                tool_result = getattr(next_msg, 'content', '')
+                                break
+                        
+                        # Structure the tool call data
+                        tool_call_entry = {
+                            'tool_name': tool_name,
+                            'arguments': tool_args,
+                            'result_summary': tool_result[:200] + '...' if tool_result and len(tool_result) > 200 else tool_result
+                        }
+                        tool_calls_data.append(tool_call_entry)
+            
+            # Clean up the final response (remove any remaining <think> blocks)
+            import re
+            clean_response = re.sub(r'<think>.*?</think>', '', final_response, flags=re.DOTALL).strip()
+            
+            # Structure the response as JSON
+            structured_response = {
+                "response": clean_response,
+                "thinking_steps": thinking_steps,
+                "tool_calls": tool_calls_data,
+                "metadata": {
+                    "total_thinking_steps": len(thinking_steps),
+                    "total_tool_calls": len(tool_calls_data),
+                    "has_reasoning": len(thinking_steps) > 0,
+                    "has_tool_usage": len(tool_calls_data) > 0
+                }
+            }
+            
+        except Exception as e:
+            activity.logger.warning(f"Could not create structured response: {e}")
+            # Fallback to original behavior
+            ai_message = result["messages"][-1]
+            structured_response = {
+                "response": ai_message.content,
+                "thinking_steps": [],
+                "tool_calls": [],
+                "metadata": {
+                    "total_thinking_steps": 0,
+                    "total_tool_calls": 0,
+                    "has_reasoning": False,
+                    "has_tool_usage": False
+                }
+            }
+        
+        activity.logger.info(f"Extracted structured response with {structured_response['metadata']['total_tool_calls']} tool calls")
         
         return {
             "query": messages,
-            "response": response_text,
             "model_used": model_name,
             "thread_id": thread_id,
-            "success": True
+            "success": True,
+            "response": structured_response["response"],
+            "thinking_steps": structured_response["thinking_steps"],
+            "tool_calls": structured_response["tool_calls"],
+            "metadata": structured_response["metadata"]
         }
         
     except Exception as e:
@@ -348,10 +563,18 @@ async def process_with_agent(
         activity.logger.error(f"Full traceback: {error_details}")
         return {
             "query": messages,
-            "response": f"Error: {str(e)}",
             "model_used": model_name,
             "thread_id": thread_id,
             "success": False,
             "error": str(e),
-            "traceback": error_details
+            "traceback": error_details,
+            "response": f"Error: {str(e)}",
+            "thinking_steps": [],
+            "tool_calls": [],
+            "metadata": {
+                "total_thinking_steps": 0,
+                "total_tool_calls": 0,
+                "has_reasoning": False,
+                "has_tool_usage": False
+            }
         } 

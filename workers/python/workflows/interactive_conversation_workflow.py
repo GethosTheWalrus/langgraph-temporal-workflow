@@ -25,19 +25,25 @@ class UserFeedback:
 @workflow.defn
 class InteractiveConversationWorkflow:
     """
-    An interactive conversation workflow that runs indefinitely until the user is satisfied.
+    An interactive conversation workflow that runs until the user is satisfied or times out.
     
     Flow:
     1. Process initial query with LangGraph agent
-    2. Wait for user signal with feedback
+    2. Wait for user signal with feedback (30-minute timeout)
     3. If user wants to continue, process follow-up query
-    4. Repeat until user indicates they're satisfied
+    4. Repeat until user indicates they're satisfied or timeout occurs
+    
+    The workflow completes successfully in all cases:
+    - User explicitly ends conversation: completion_reason = "user_ended"
+    - 30-minute timeout waiting for feedback: completion_reason = "timeout" 
+    - No feedback received: completion_reason = "no_feedback"
     """
     
     def __init__(self):
         self.continue_conversation = True
         self.latest_user_feedback: Optional[UserFeedback] = None
         self.conversation_history: List[ConversationTurn] = []
+        self.completion_reason: str = "user_ended"  # Track how conversation ended
     
     @workflow.run
     async def run(
@@ -126,18 +132,27 @@ class InteractiveConversationWorkflow:
             
             workflow.logger.info(f"Agent responded. Waiting for user feedback...")
             
-            # Wait for user feedback signal (continue or finish) - waits indefinitely
-            await workflow.wait_condition(
-                lambda: self.latest_user_feedback is not None,
-                timeout=timedelta(minutes=30)
-            )
-            
-            # Process user feedback
-            feedback = self.latest_user_feedback
-            self.latest_user_feedback = None  # Reset for next iteration
-            
-            if feedback is None:
-                workflow.logger.info("No feedback received. Ending conversation.")
+            # Wait for user feedback signal (continue or finish) with timeout handling
+            try:
+                await workflow.wait_condition(
+                    lambda: self.latest_user_feedback is not None,
+                    timeout=timedelta(minutes=30)
+                )
+                
+                # Process user feedback
+                feedback = self.latest_user_feedback
+                self.latest_user_feedback = None  # Reset for next iteration
+                
+                if feedback is None:
+                    workflow.logger.info("No feedback received. Ending conversation.")
+                    self.completion_reason = "no_feedback"
+                    self.continue_conversation = False
+                    break
+                    
+            except Exception as e:
+                # Handle timeout gracefully - end conversation successfully
+                workflow.logger.info(f"Timeout waiting for user feedback ({str(e)}). Ending conversation gracefully.")
+                self.completion_reason = "timeout"
                 self.continue_conversation = False
                 break
                 
@@ -145,6 +160,7 @@ class InteractiveConversationWorkflow:
             
             if not feedback.continue_conversation:
                 workflow.logger.info("User indicated they're satisfied. Ending conversation.")
+                self.completion_reason = "user_ended"
                 self.continue_conversation = False
             elif feedback.follow_up_query and feedback.follow_up_query.strip():
                 workflow.logger.info(f"User provided follow-up: {feedback.follow_up_query}")
@@ -158,6 +174,7 @@ class InteractiveConversationWorkflow:
         # Return final conversation summary
         return {
             "conversation_complete": True,
+            "completion_reason": self.completion_reason,
             "total_turns": len(self.conversation_history),
             "thread_id": thread_id,
             "model_used": model_name,
@@ -234,4 +251,9 @@ class InteractiveConversationWorkflow:
     @workflow.query
     def is_waiting_for_feedback(self) -> bool:
         """Check if workflow is currently waiting for user feedback"""
-        return self.continue_conversation and self.latest_user_feedback is None 
+        return self.continue_conversation and self.latest_user_feedback is None
+    
+    @workflow.query
+    def get_completion_reason(self) -> str:
+        """Get the reason why the conversation ended"""
+        return self.completion_reason 

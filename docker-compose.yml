@@ -136,7 +136,7 @@ services:
       - POSTGRES_PASSWORD=apppassword
       # Ollama configuration (clients pass these to workflows)
       - OLLAMA_BASE_URL=http://host.docker.internal:11434 # upate this to your Ollama host
-      - OLLAMA_MODEL_NAME=qwen3:8b
+      - OLLAMA_MODEL_NAME=qwen3:14b
       - OLLAMA_TEMPERATURE=0.0
       # Redis configuration
       - REDIS_URL=redis://redis:6379
@@ -158,7 +158,7 @@ services:
       - POSTGRES_PASSWORD=apppassword
       # Ollama configuration (clients pass these to workflows)
       - OLLAMA_BASE_URL=http://host.docker.internal:11434 # upate this to your Ollama host
-      - OLLAMA_MODEL_NAME=qwen3:8b
+      - OLLAMA_MODEL_NAME=qwen3:14b
       - OLLAMA_TEMPERATURE=0.0
       # Redis configuration
       - REDIS_URL=redis://redis:6379

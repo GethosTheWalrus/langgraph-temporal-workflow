@@ -56,7 +56,7 @@ graph TB
         direction TB
         ICW[Interactive Conversation Workflow]
         ICW --> |"execute_activity(10min timeout)"| AG1[Agent Activity<br/>LangChain + LangGraph]
-        AG1 --> |"uses tools"| TOOLS1[Tool Set 1<br/>• query_database<br/>• get_table_schema<br/>• think_step_by_step<br/>• analyze_text]
+        AG1 --> |"uses tools"| TOOLS1[Tool Set 1<br/>• query_database<br/>• get_batch_table_schemas<br/>• analyze_table_relationships<br/>• think_step_by_step<br/>• analyze_text]
     end
     
     subgraph "Potential Future Workflows"
@@ -165,19 +165,20 @@ sequenceDiagram
         Note over Agent: Activity Timeout: 10 minutes
         
         Agent->>Redis: Setup checkpointer & load conversation history
-        Agent->>Agent: Create LangGraph agent with 4 tools
+        Agent->>Agent: Create LangGraph agent with 5 tools
         
         Agent->>Ollama: "Generate revenue report for PC shop"
         Ollama->>Agent: "I need to explore the database first"
         
-        Agent->>DB: get_table_schema("orders")
-        DB->>Agent: JSON schema with columns & types
+        Agent->>DB: get_batch_table_schemas(["orders", "order_items", "pc_parts"])
+        DB->>Agent: JSON schemas for multiple tables at once
+        Note over Agent,DB: Efficient: 2 tool calls instead of N individual schema calls
         
-        Agent->>DB: get_table_schema("order_items") 
-        DB->>Agent: JSON schema with relationships
+        Agent->>DB: analyze_table_relationships(["orders", "order_items"])
+        DB->>Agent: Foreign key relationships between tables
         
-        Agent->>Ollama: "Now I understand the schema, let me write SQL"
-        Ollama->>Agent: Generate SQL query
+        Agent->>Ollama: "Now I understand schemas & relationships, let me write SQL"
+        Ollama->>Agent: Generate optimized SQL query
         
         Agent->>DB: BEGIN TRANSACTION READ ONLY
         Agent->>DB: Execute complex SQL query
