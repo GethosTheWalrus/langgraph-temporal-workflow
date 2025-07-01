@@ -116,6 +116,8 @@ services:
     depends_on:
       - redis
       - app-postgres
+    extra_hosts:
+    - host.docker.internal:host-gateway
     profiles:
       - workers
 
@@ -140,6 +142,8 @@ services:
       - OLLAMA_TEMPERATURE=0.0
       # Redis configuration
       - REDIS_URL=redis://redis:6379
+    extra_hosts:
+      - host.docker.internal:host-gateway
     profiles:
       - clients
   csharp-client:
@@ -162,6 +166,8 @@ services:
       - OLLAMA_TEMPERATURE=0.0
       # Redis configuration
       - REDIS_URL=redis://redis:6379
+    extra_hosts:
+      - host.docker.internal:host-gateway
     profiles:
       - clients
 
