@@ -45,78 +45,71 @@ To complete the workflow
 ```mermaid
 graph TB
     subgraph "Client Layer"
-        BC[Basic Client<br/>C# & Python]
-        IC[Interactive Client<br/>C# & Python]  
-        RC[Retention Client<br/>C# & Python]
+        BC[Basic Client]
+        IC[Interactive Client]  
+        RC[Retention Client]
     end
     
-    subgraph "Temporal Orchestration Layer"
-        TS[Temporal Server<br/>Workflow Orchestration]
-        TUI[Temporal UI<br/>Monitoring & Signals]
+    subgraph "Temporal Orchestration"
+        TS[Temporal Server]
+        TUI[Temporal UI]
         subgraph "Task Queues"
-            TQ1[hello-task-queue<br/>Basic Workflows]
-            TQ2[customer-retention-queue<br/>Retention Workflows]
-            TQ3[interactive-conversation-queue<br/>Interactive Workflows]
+            TQ1[hello-task-queue]
+            TQ2[customer-retention-queue]
+            TQ3[interactive-conversation-queue]
         end
     end
     
-    subgraph "Workflow Layer"
-        AW[AgentWorkflow<br/>Basic Q&A]
-        ICW[InteractiveConversationWorkflow<br/>Signal-driven Chat]
-        CRW[CustomerRetentionWorkflow<br/>Multi-Agent Processing]
+    subgraph "Workflows"
+        AW[AgentWorkflow]
+        ICW[InteractiveConversationWorkflow]
+        CRW[CustomerRetentionWorkflow]
     end
     
     subgraph "Worker Layer (5 Replicas)"
-        subgraph "Each Replica Runs 3 Concurrent Workers"
-            W1[Basic Worker<br/>hello-task-queue]
-            W2[Retention Worker<br/>customer-retention-queue]
-            W3[Interactive Worker<br/>interactive-conversation-queue]
+        subgraph "Each Replica"
+            W1[Basic Worker]
+            W2[Retention Worker]
+            W3[Interactive Worker]
         end
     end
     
-    subgraph "Activity Layer"
-        LA[LangChain Agent<br/>General Purpose]
-        CIA[Customer Intelligence<br/>Agent Activity]
-        OIA[Operations Investigation<br/>Agent Activity]
-        RSA[Retention Strategy<br/>Agent Activity]
-        BIA[Business Intelligence<br/>Agent Activity]
-        CAA[Case Analysis<br/>Agent Activity]
-        RES[Resolution Suggestion<br/>Agent Activity]
+    subgraph "Agent Activities"
+        LA[LangChain Agent]
+        subgraph "Retention Agents"
+            CIA[Customer Intelligence]
+            OIA[Operations Investigation]
+            RSA[Retention Strategy]
+            BIA[Business Intelligence]
+            CAA[Case Analysis]
+            RES[Resolution Suggestion]
+        end
     end
     
-    subgraph "Tool Layer"
-        GT[General Tools<br/>• think_step_by_step<br/>• analyze_text]
-        DT[Database Tools<br/>• query_database<br/>• get_batch_table_schemas<br/>• analyze_table_relationships]
-        CIT[Customer Intelligence Tools<br/>• get_customer_profile<br/>• calculate_clv<br/>• get_risk_score]
-        CMT[Case Management Tools<br/>• create_retention_case<br/>• update_case_state<br/>• get_case_summary]
+    subgraph "Infrastructure"
+        REDIS[(Redis<br/>Memory & State)]
+        POSTGRES[(PostgreSQL<br/>Database)]
+        OLLAMA[Ollama LLM<br/>qwen3:8b]
     end
     
-    subgraph "Infrastructure Layer"
-        REDIS[(Redis<br/>Conversation Memory<br/>& Case State)]
-        POSTGRES[(PostgreSQL<br/>E-commerce Database<br/>Enhanced Schema)]
-        OLLAMA[Ollama LLM<br/>qwen3:8b Model]
-    end
-    
-    %% Client to Temporal
+    %% Main flow connections
     BC --> TS
     IC --> TS  
     RC --> TS
     TUI --> TS
     
-    %% Temporal to Workflows via Task Queues
     TS --> TQ1
     TS --> TQ2
     TS --> TQ3
+    
     TQ1 --> AW
     TQ2 --> CRW
     TQ3 --> ICW
     
-    %% Workers polling from specific queues
     TQ1 --> W1
     TQ2 --> W2
     TQ3 --> W3
     
-    %% Workers execute activities
     W1 --> LA
     W2 --> CIA
     W2 --> OIA
@@ -126,26 +119,7 @@ graph TB
     W2 --> RES
     W3 --> LA
     
-    %% Activities use tools
-    LA --> GT
-    LA --> DT
-    CIA --> GT
-    CIA --> CIT
-    CIA --> CMT
-    CIA --> DT
-    OIA --> GT
-    OIA --> DT
-    OIA --> CMT
-    RSA --> GT
-    RSA --> CMT
-    BIA --> GT
-    BIA --> CMT
-    CAA --> GT
-    CAA --> CMT
-    RES --> GT
-    RES --> CMT
-    
-    %% Infrastructure connections
+    %% Infrastructure connections (simplified)
     LA --> REDIS
     CIA --> REDIS
     OIA --> REDIS
@@ -154,8 +128,9 @@ graph TB
     CAA --> REDIS
     RES --> REDIS
     
-    DT --> POSTGRES
-    CIT --> POSTGRES
+    LA --> POSTGRES
+    CIA --> POSTGRES
+    OIA --> POSTGRES
     
     LA --> OLLAMA
     CIA --> OLLAMA
@@ -166,20 +141,18 @@ graph TB
     RES --> OLLAMA
     
     %% Styling
-    classDef client fill:#e3f2fd
-    classDef temporal fill:#f3e5f5  
-    classDef workflow fill:#e8f5e8
-    classDef worker fill:#fff3e0
-    classDef activity fill:#fce4ec
-    classDef tool fill:#f1f8e9
-    classDef infra fill:#ffebee
+    classDef client fill:#e3f2fd,stroke:#2196f3
+    classDef temporal fill:#f3e5f5,stroke:#9c27b0
+    classDef workflow fill:#e8f5e8,stroke:#4caf50
+    classDef worker fill:#fff3e0,stroke:#ff9800
+    classDef activity fill:#fce4ec,stroke:#e91e63
+    classDef infra fill:#ffebee,stroke:#f44336
     
     class BC,IC,RC client
     class TS,TUI,TQ1,TQ2,TQ3 temporal
     class AW,ICW,CRW workflow
     class W1,W2,W3 worker
     class LA,CIA,OIA,RSA,BIA,CAA,RES activity
-    class GT,DT,CIT,CMT tool
     class REDIS,POSTGRES,OLLAMA infra
 ```
 
