@@ -284,104 +284,97 @@ sequenceDiagram
 ### 4. Customer Retention Multi-Agent Workflow
 
 ```mermaid
-graph TB
-    subgraph "Customer Retention Workflow - customer-retention-queue"
-        START[Customer Complaint<br/>+ Order IDs + Priority]
+sequenceDiagram
+    participant Client as Retention Client
+    participant Temporal as Temporal Server
+    participant UI as Temporal UI
+    participant Queue as customer-retention-queue
+    participant Workflow as Customer Retention Workflow
+    participant W1 as Customer Intelligence Worker
+    participant W2 as Operations Investigation Worker
+    participant W3 as Retention Strategy Worker
+    participant W4 as Business Intelligence Worker
+    participant W5 as Case Analysis Worker
+    participant W6 as Resolution Suggestion Worker
+    participant Redis as Redis Case State
+    participant DB as PostgreSQL
+    participant LLM as Ollama
+    
+    Client->>Temporal: start_workflow("CustomerRetentionWorkflow", complaint)
+    Temporal->>Workflow: execute with customer complaint
+    
+    Note over Workflow: Stage 1: Generate Case ID
+    Workflow->>Workflow: case_id = retention_customerID_timestamp
+    
+    Note over Workflow: Stage 2: Parallel Intelligence Gathering
+    par Customer Intelligence
+        Workflow->>Queue: schedule customer_intelligence_agent
+        Queue->>W1: poll for task
+        W1->>Redis: create_retention_case(case_id)
+        W1->>DB: get_customer_profile & calculate_clv
+        W1->>LLM: analyze customer value & risk
+        W1->>Redis: update_case_state with intelligence
+        W1->>Workflow: return customer analysis
+    and Operations Investigation  
+        Workflow->>Queue: schedule operations_investigation_agent
+        Queue->>W2: poll for task
+        W2->>DB: investigate orders & root causes
+        W2->>LLM: analyze operational issues
+        W2->>Redis: update_case_state with investigation
+        W2->>Workflow: return investigation results
+    end
+    
+    Note over Workflow: Stage 3: Strategy Development
+    Workflow->>Queue: schedule retention_strategy_agent
+    Queue->>W3: poll for task
+    W3->>Redis: get_case_state (intelligence + investigation)
+    W3->>LLM: develop retention strategy
+    W3->>Redis: update_case_state with strategy
+    W3->>Workflow: return strategy results
+    
+    Note over Workflow: Stage 4-5: Parallel Analysis & Reporting
+    par Business Intelligence
+        Workflow->>Queue: schedule business_intelligence_agent
+        Queue->>W4: poll for task
+        W4->>Redis: get_case_state (all previous data)
+        W4->>LLM: generate executive insights
+        W4->>Redis: update_case_state with BI report
+        W4->>Workflow: return BI results
+    and Case Analysis
+        Workflow->>Queue: schedule case_analysis_agent
+        Queue->>W5: poll for task
+        W5->>Redis: get_case_state (all previous data)
+        W5->>LLM: extract real metrics & validation
+        W5->>Redis: update_case_state with analysis
+        W5->>Workflow: return case analysis
+    end
+    
+    Note over Workflow: Stage 6: Resolution & Human Approval Loop
+    loop Until Human Approval
+        Workflow->>Queue: schedule suggest_resolution
+        Queue->>W6: poll for task
+        W6->>Redis: get_case_summary (all accumulated data)
+        W6->>LLM: synthesize actionable resolution plan
+        W6->>Workflow: return resolution suggestion
         
-        STAGE1[Stage 1: Case ID Generation<br/>retention_customerID_timestamp]
+        Workflow->>Workflow: await approve_resolution signal (30min timeout)
+        Note over Workflow: Waiting for human approval via Temporal UI
         
-        subgraph "Stage 2: Parallel Intelligence Gathering"
-            direction TB
-            CIA[Customer Intelligence Agent<br/>Worker 1<br/>• Customer profile & CLV<br/>• Risk assessment<br/>• Retention priority<br/>• Case initialization]
-            OIA[Operations Investigation Agent<br/>Worker 2<br/>• Order investigation<br/>• Root cause analysis<br/>• Systemic issues<br/>• Timeline reconstruction]
+        UI->>Temporal: send approve_resolution signal
+        Temporal->>Workflow: deliver approval decision
+        
+        alt Resolution Approved
+            Note over Workflow: approve: true - Continue to final stage
+        else Resolution Declined  
+            Note over Workflow: approve: false + feedback - Generate new resolution
         end
-        
-        STAGE3[Stage 3: Strategy Development<br/>Worker 3<br/>Retention Strategy Agent<br/>• Analyze intelligence data<br/>• Develop retention plan<br/>• Calculate compensation<br/>• ROI justification]
-        
-        subgraph "Stage 4-5: Parallel Analysis & Reporting"
-            direction TB
-            BIA[Business Intelligence Agent<br/>Worker 4<br/>• Executive reporting<br/>• Strategic insights<br/>• Policy recommendations<br/>• Process improvements]
-            CAA[Case Analysis Agent<br/>Worker 5<br/>• Extract REAL metrics<br/>• CLV validation<br/>• Retention probability<br/>• Success assessment]
-        end
-        
-        subgraph "Stage 6: Resolution & Human Approval"
-            RES[Resolution Suggestion Agent<br/>Worker 6<br/>• Synthesize all case data<br/>• Create actionable resolution<br/>• Human-in-the-loop approval]
-            APPROVAL{Human Approval<br/>via Temporal Signal<br/>approve_resolution}
-            RETRY[Generate New Resolution<br/>Based on Feedback]
-        end
-        
-        FINAL[Stage 7: Results Compilation<br/>• Customer Retained: True/False<br/>• Actual CLV: $X,XXX<br/>• ROI Analysis: X.XX<br/>• Executive Summary<br/>• Resolution Attempts: N]
     end
     
-    subgraph "Distributed State Management"
-        REDIS[Redis Shared State<br/>• Case metadata & context<br/>• Cross-agent coordination<br/>• Real-time progress tracking]
-        POSTGRES[Enhanced PostgreSQL Schema<br/>• Customer intelligence data<br/>• Support tickets & preferences<br/>• Financial & delivery tracking]
-    end
+    Note over Workflow: Stage 7: Results Compilation
+    Workflow->>Redis: extract final metrics from case analysis
+    Workflow->>Client: return RetentionResult with outcomes
     
-    subgraph "Specialized Tool Distribution"
-        CITOOLS[Customer Intelligence Tools<br/>• get_customer_profile<br/>• calculate_clv<br/>• get_risk_score]
-        DBTOOLS[Database Investigation Tools<br/>• query_database<br/>• get_batch_schemas<br/>• analyze_relationships]
-        CMTOOLS[Case Management Tools<br/>• create_retention_case<br/>• update_case_state<br/>• get_case_summary]
-    end
-    
-    subgraph "Human Interaction"
-        UI[Temporal UI<br/>Manual Signal Sending]
-        SIGNALS[Signal Examples:<br/>approve: true/false<br/>followUp: feedback text]
-    end
-    
-    %% Flow connections
-    START --> STAGE1
-    STAGE1 --> CIA
-    STAGE1 --> OIA
-    CIA --> STAGE3
-    OIA --> STAGE3
-    STAGE3 --> BIA
-    STAGE3 --> CAA
-    BIA --> RES
-    CAA --> RES
-    RES --> APPROVAL
-    APPROVAL -->|Approved| FINAL
-    APPROVAL -->|Declined| RETRY
-    RETRY --> RES
-    
-    %% Human interaction
-    UI --> APPROVAL
-    SIGNALS --> UI
-    
-    %% State management
-    CIA -.-> REDIS
-    OIA -.-> REDIS
-    STAGE3 -.-> REDIS
-    BIA -.-> REDIS
-    CAA -.-> REDIS
-    RES -.-> REDIS
-    
-    %% Data access
-    CIA --> POSTGRES
-    OIA --> POSTGRES
-    CIA --> CITOOLS
-    OIA --> DBTOOLS
-    STAGE3 --> CMTOOLS
-    BIA --> CMTOOLS
-    CAA --> CMTOOLS
-    RES --> CMTOOLS
-    
-    %% Parallel execution indicators
-    CIA -.->|"asyncio.gather()"| OIA
-    BIA -.->|"asyncio.gather()"| CAA
-    
-    %% Styling
-    classDef parallel fill:#e8f5e8,stroke:#4caf50,stroke-width:3px
-    classDef sequential fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
-    classDef human fill:#fff3e0,stroke:#ff9800,stroke-width:3px
-    classDef state fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
-    classDef tools fill:#f1f8e9,stroke:#8bc34a,stroke-width:2px
-    
-    class CIA,OIA,BIA,CAA parallel
-    class START,STAGE1,STAGE3,RES,FINAL sequential
-    class APPROVAL,RETRY,UI,SIGNALS human
-    class REDIS,POSTGRES state
-    class CITOOLS,DBTOOLS,CMTOOLS tools
+    Client->>Client: display case summary & resolution attempts
 ```
 
 **Human Approval Signal Examples:**
