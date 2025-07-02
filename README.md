@@ -326,7 +326,7 @@ graph TB
     
     subgraph "Human Interaction"
         UI[Temporal UI<br/>Manual Signal Sending]
-        SIGNALS[Signal Examples:<br/>{"approve": true, "followUp": ""}<br/>{"approve": false, "followUp": "..."}]
+        SIGNALS[Signal Examples:<br/>approve: true/false<br/>followUp: feedback text]
     end
     
     %% Flow connections
@@ -382,4 +382,13 @@ graph TB
     class APPROVAL,RETRY,UI,SIGNALS human
     class REDIS,POSTGRES state
     class CITOOLS,DBTOOLS,CMTOOLS tools
+```
+
+**Human Approval Signal Examples:**
+```json
+// Approve resolution
+{"approve": true, "followUp": ""}
+
+// Decline with feedback  
+{"approve": false, "followUp": "Please provide more specific timeline commitments and escalation procedures."}
 ```
