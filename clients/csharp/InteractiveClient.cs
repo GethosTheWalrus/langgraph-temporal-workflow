@@ -48,7 +48,7 @@ class InteractiveConversationClient
             new WorkflowOptions
             {
                 Id = workflowId,
-                TaskQueue = "hello-task-queue"
+                TaskQueue = "interactive-conversation-queue"
             });
 
         Console.WriteLine("✅ Workflow started!");
@@ -56,7 +56,7 @@ class InteractiveConversationClient
         Console.WriteLine("📋 Workflow Details:");
         Console.WriteLine($"   ID: {workflowId}");
         Console.WriteLine($"   Thread ID: {threadId}");
-        Console.WriteLine($"   Task Queue: hello-task-queue");
+        Console.WriteLine($"   Task Queue: interactive-conversation-queue");
         Console.WriteLine();
         Console.WriteLine("🎯 The workflow is now waiting for signals!");
         Console.WriteLine("   Use the Temporal UI to send 'user_feedback' signals:");

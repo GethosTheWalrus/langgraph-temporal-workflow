@@ -2,10 +2,6 @@ from datetime import timedelta
 from typing import Dict, Any, Optional
 from temporalio import workflow
 
-# Import activity, passing it through the sandbox without reloading the module
-with workflow.unsafe.imports_passed_through():
-    from activities import process_with_agent
-
 
 @workflow.defn
 class AgentWorkflow:
@@ -67,7 +63,7 @@ class AgentWorkflow:
             raise ValueError("Missing required workflow parameter: temperature")
         
         return await workflow.execute_activity(
-            process_with_agent,
+            "process_with_agent",
             args=[query, thread_id, ollama_base_url, model_name, temperature, redis_url, postgres_host, postgres_port, postgres_db, postgres_user, postgres_password],
             start_to_close_timeout=timedelta(minutes=2)
         )

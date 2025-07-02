@@ -105,9 +105,8 @@ services:
       - workers
       - clients
 
-  # Temporal Worker Services
+  # Temporal Worker Services (Multiple Replicas for Parallel Processing)
   python-worker:
-    container_name: python-worker
     build:
       context: ./workers/python
       dockerfile: Dockerfile
@@ -117,9 +116,16 @@ services:
       - redis
       - app-postgres
     extra_hosts:
-    - host.docker.internal:host-gateway
+      - host.docker.internal:host-gateway
     profiles:
       - workers
+    deploy:
+      replicas: 5
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
 
   # Temporal Clients
   python-client:
@@ -150,7 +156,10 @@ services:
     container_name: csharp-client
     build:
       context: ./clients/csharp
-      dockerfile: Dockerfile.interactive  # Change to Dockerfile.basic for basic client
+      # different dockerfiles for different workflows. You can run these side by side if you want.
+      # dockerfile: Dockerfile.basic 
+      # dockerfile: Dockerfile.interactive 
+      dockerfile: Dockerfile.retention 
     networks:
       - temporal-network
     environment:

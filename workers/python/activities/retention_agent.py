@@ -1,23 +1,32 @@
-import logging
+"""
+Retention Agent Activity with specialized tools for customer retention workflows.
+
+This agent has access to case management tools, customer intelligence tools,
+and database tools specifically configured for retention scenarios.
+"""
+
 import asyncio
+import json
+import logging
 import re
 import traceback
 from typing import Dict, Any, Optional
-from temporalio import activity
-import redis.asyncio as redis
 
-# LangChain/LangGraph imports
+import redis.asyncio as redis
+from temporalio import activity
 from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
-# Import tools from the new tools modules
+# Import tools from various modules
 from tools.general import think_step_by_step, analyze_text
 from tools.database import create_database_tools
+from tools.case_management import create_case_management_tools
+from tools.customer_intelligence import create_customer_intelligence_tools
 
 
 @activity.defn
-async def process_with_agent(
+async def process_with_retention_agent(
     messages: str,  # Can be a single message or conversation
     thread_id: Optional[str],
     ollama_base_url: str,
@@ -31,35 +40,33 @@ async def process_with_agent(
     postgres_password: str
 ) -> Dict[str, Any]:
     """
-    Simple Temporal activity that uses LangGraph agent to process messages.
-    LangGraph handles all the conversation state, memory, and complexity for us.
-    Uses Redis for distributed state persistence across worker instances.
+    Process messages with a specialized retention agent that has access to:
+    - General reasoning tools (think_step_by_step, analyze_text)
+    - Database tools (query, schema analysis, relationships)
+    - Case management tools (create, update, track retention cases)
+    - Customer intelligence tools (profile, CLV, risk scoring)
     
-    All configuration parameters are required and must be provided by the workflow.
+    This agent is optimized for customer retention workflows and multi-agent coordination.
     
     Args:
-        messages: The user's message(s) - can be single query or part of conversation
-        thread_id: Optional thread ID for conversation memory (LangGraph manages this)
-        ollama_base_url: Ollama server URL (required)
-        model_name: Ollama model to use (required)
-        temperature: Model temperature (required)
-        redis_url: Redis connection URL for persistent state storage (required)
-        postgres_host: PostgreSQL host (required)
-        postgres_port: PostgreSQL port (required)
-        postgres_db: PostgreSQL database (required)
-        postgres_user: PostgreSQL user (required)
-        postgres_password: PostgreSQL password (required)
+        messages: The query or conversation to process
+        thread_id: Thread ID for conversation memory persistence
+        ollama_base_url: URL of the Ollama server
+        model_name: Name of the model to use
+        temperature: Temperature for model responses
+        redis_url: Redis connection URL for memory and state
+        postgres_host: PostgreSQL host
+        postgres_port: PostgreSQL port
+        postgres_db: PostgreSQL database name
+        postgres_user: PostgreSQL username
+        postgres_password: PostgreSQL password
         
     Returns:
-        Dict with the agent's response and metadata
+        Dictionary with response, thinking steps, tool calls, and metadata
     """
     
-    # Validate all required parameters are provided
+    # Validate required parameters
     required_params = {
-        'messages': messages,
-        'ollama_base_url': ollama_base_url,
-        'model_name': model_name,
-        'redis_url': redis_url,
         'postgres_host': postgres_host,
         'postgres_port': postgres_port,
         'postgres_db': postgres_db,
@@ -84,7 +91,7 @@ async def process_with_agent(
     }
     
     try:
-        activity.logger.info(f"Processing with agent (model: {model_name}, thread: {thread_id})")
+        activity.logger.info(f"Processing with retention agent (model: {model_name}, thread: {thread_id})")
         activity.logger.info(f"Database: {postgres_user}@{postgres_host}:{postgres_port}/{postgres_db}")
         
         # Set up model with timeout handling
@@ -105,36 +112,45 @@ async def process_with_agent(
         redis_client = redis.from_url(redis_url)
         memory = AsyncRedisSaver(redis_client=redis_client)
         activity.logger.info("Setting up Redis checkpointer...")
-        try:
-            await memory.asetup()  # Initialize Redis indices for checkpointing (async)
-            activity.logger.info("Redis checkpointer setup complete")
-        except Exception as e:
-            # Ignore "index already exists" errors - this happens during parallel execution
-            if "already exists" in str(e).lower():
-                activity.logger.info("Redis indices already exist, continuing...")
-            else:
-                raise e
+        await memory.asetup()  # Initialize Redis indices for checkpointing (async)
+        activity.logger.info("Redis checkpointer setup complete")
         
-        activity.logger.info("Creating LangGraph agent with reasoning tools...")
-        # Create database tools configured with the provided db_config
-        db_tools = create_database_tools(db_config)
+        activity.logger.info("Creating specialized retention agent with comprehensive tools...")
         
-        # Combine static tools with configured database tools
-        tools = [think_step_by_step, analyze_text] + db_tools
-        agent = create_react_agent(model, tools, checkpointer=memory)
-        activity.logger.info(f"LangGraph agent created successfully with {len(tools)} reasoning tools")
+        # Create all tool categories
+        general_tools = [think_step_by_step, analyze_text]
+        database_tools = create_database_tools(db_config)
+        case_management_tools = create_case_management_tools(redis_url)
+        customer_intelligence_tools = create_customer_intelligence_tools(db_config)
         
-        # Configure thread for conversation memory with iteration limit
+        # Combine all tools for the retention agent
+        all_tools = (
+            general_tools + 
+            database_tools + 
+            case_management_tools + 
+            customer_intelligence_tools
+        )
+        
+        activity.logger.info(f"Retention agent created with {len(all_tools)} specialized tools:")
+        activity.logger.info(f"- General tools: {len(general_tools)}")
+        activity.logger.info(f"- Database tools: {len(database_tools)}")
+        activity.logger.info(f"- Case management tools: {len(case_management_tools)}")
+        activity.logger.info(f"- Customer intelligence tools: {len(customer_intelligence_tools)}")
+        
+        # Create agent with all tools
+        agent = create_react_agent(model, all_tools, checkpointer=memory)
+        
+        # Configure thread for conversation memory with higher iteration limit for complex workflows
         config = {"configurable": {"thread_id": thread_id}} if thread_id else {}
-        config["recursion_limit"] = 10  # Limit reasoning loops to prevent infinite cycles
-        activity.logger.info(f"Invoking agent with config: {config} (max 10 iterations)")
+        config["recursion_limit"] = 15  # Higher limit for multi-step retention workflows
+        activity.logger.info(f"Invoking retention agent with config: {config} (max 15 iterations)")
         
-        # Let LangGraph handle the conversation - it's that simple!
+        # Let LangGraph handle the conversation
         result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": messages}]},
             config=config
         )
-        activity.logger.info("Agent invocation completed")
+        activity.logger.info("Retention agent invocation completed")
         
         # Extract the response (LangGraph gives us a clean format)
         activity.logger.info(f"Result structure: {list(result.keys()) if isinstance(result, dict) else type(result)}")
@@ -213,7 +229,9 @@ async def process_with_agent(
                     "total_thinking_steps": len(thinking_steps),
                     "total_tool_calls": len(tool_calls_data),
                     "has_reasoning": len(thinking_steps) > 0,
-                    "has_tool_usage": len(tool_calls_data) > 0
+                    "has_tool_usage": len(tool_calls_data) > 0,
+                    "agent_type": "retention_specialist",
+                    "tools_available": len(all_tools)
                 }
             }
             
@@ -229,7 +247,9 @@ async def process_with_agent(
                     "total_thinking_steps": 0,
                     "total_tool_calls": 0,
                     "has_reasoning": False,
-                    "has_tool_usage": False
+                    "has_tool_usage": False,
+                    "agent_type": "retention_specialist",
+                    "tools_available": len(all_tools)
                 }
             }
         
@@ -248,7 +268,7 @@ async def process_with_agent(
         
     except Exception as e:
         error_details = traceback.format_exc()
-        activity.logger.error(f"Error in agent activity: {str(e)}")
+        activity.logger.error(f"Error in retention agent activity: {str(e)}")
         activity.logger.error(f"Full traceback: {error_details}")
         return {
             "query": messages,
@@ -264,6 +284,8 @@ async def process_with_agent(
                 "total_thinking_steps": 0,
                 "total_tool_calls": 0,
                 "has_reasoning": False,
-                "has_tool_usage": False
+                "has_tool_usage": False,
+                "agent_type": "retention_specialist",
+                "tools_available": 0
             }
         } 

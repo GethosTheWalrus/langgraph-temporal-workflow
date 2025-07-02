@@ -4,34 +4,52 @@ WITH user_address_ids AS (
     FROM users u 
     JOIN addresses a ON u.id = a.user_id
 )
-INSERT INTO orders (user_id, address_id, status, total, order_type, created_at, updated_at)
-VALUES
+INSERT INTO orders (
+    user_id, address_id, status, total, subtotal, tax_amount, shipping_cost, discount_amount,
+    order_type, order_date, delivery_date, estimated_delivery_date, shipping_method, created_at, updated_at
+) VALUES
 -- Recent orders (last month)
 (
     (SELECT user_id FROM user_address_ids WHERE user_id = 1),
     (SELECT address_id FROM user_address_ids WHERE user_id = 1),
-    'delivered', 4299.99, 'prebuilt',
+    'delivered', 4299.99, 3999.99, 319.99, 49.99, 69.98, 'prebuilt',
+    NOW() - INTERVAL '25 days',
+    NOW() - INTERVAL '22 days',
+    NOW() - INTERVAL '23 days',
+    'Standard Shipping',
     NOW() - INTERVAL '25 days',
     NOW() - INTERVAL '22 days'
 ),
 (
     (SELECT user_id FROM user_address_ids WHERE user_id = 2),
     (SELECT address_id FROM user_address_ids WHERE user_id = 2),
-    'delivered', 3799.99, 'prebuilt',
+    'delivered', 3799.99, 3499.99, 279.99, 39.99, 19.98, 'prebuilt',
+    NOW() - INTERVAL '20 days',
+    NOW() - INTERVAL '17 days',
+    NOW() - INTERVAL '18 days',
+    'Express Shipping',
     NOW() - INTERVAL '20 days',
     NOW() - INTERVAL '17 days'
 ),
 (
     (SELECT user_id FROM user_address_ids WHERE user_id = 3),
     (SELECT address_id FROM user_address_ids WHERE user_id = 3),
-    'shipped', 2999.99, 'prebuilt',
+    'shipped', 2999.99, 2799.99, 199.99, 29.99, 29.98, 'prebuilt',
+    NOW() - INTERVAL '15 days',
+    NULL,
+    NOW() - INTERVAL '12 days',
+    'Standard Shipping',
     NOW() - INTERVAL '15 days',
     NOW() - INTERVAL '13 days'
 ),
 (
     (SELECT user_id FROM user_address_ids WHERE user_id = 4),
     (SELECT address_id FROM user_address_ids WHERE user_id = 4),
-    'processing', 2199.99, 'prebuilt',
+    'processing', 2199.99, 1999.99, 159.99, 39.99, 0.00, 'prebuilt',
+    NOW() - INTERVAL '5 days',
+    NULL,
+    NOW() + INTERVAL '2 days',
+    'Standard Shipping',
     NOW() - INTERVAL '5 days',
     NOW() - INTERVAL '5 days'
 ),
