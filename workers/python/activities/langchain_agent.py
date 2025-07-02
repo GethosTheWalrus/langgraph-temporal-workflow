@@ -1,5 +1,7 @@
 import logging
 import asyncio
+import re
+import traceback
 from typing import Dict, Any, Optional
 from temporalio import activity
 import redis.asyncio as redis
@@ -151,7 +153,6 @@ async def process_with_agent(
                     # Look for thinking patterns
                     if ('<think>' in content and '</think>' in content):
                         # Extract content between <think> tags
-                        import re
                         think_matches = re.findall(r'<think>(.*?)</think>', content, re.DOTALL)
                         for think_content in think_matches:
                             thinking_steps.append(think_content.strip())
@@ -194,7 +195,6 @@ async def process_with_agent(
                         tool_calls_data.append(tool_call_entry)
             
             # Clean up the final response (remove any remaining <think> blocks)
-            import re
             clean_response = re.sub(r'<think>.*?</think>', '', final_response, flags=re.DOTALL).strip()
             
             # Structure the response as JSON
@@ -240,7 +240,6 @@ async def process_with_agent(
         }
         
     except Exception as e:
-        import traceback
         error_details = traceback.format_exc()
         activity.logger.error(f"Error in agent activity: {str(e)}")
         activity.logger.error(f"Full traceback: {error_details}")

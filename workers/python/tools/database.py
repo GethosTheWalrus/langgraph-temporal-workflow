@@ -5,9 +5,12 @@ These tools provide PostgreSQL database interaction capabilities including
 schema inspection, relationship analysis, and read-only query execution.
 """
 
-import logging
 import asyncio
+import json
+import logging
 from typing import List, Optional
+
+import asyncpg
 from temporalio import activity
 from langchain_core.tools import tool
 
@@ -39,11 +42,7 @@ def create_database_tools(db_config: dict):
             - get_batch_table_schemas(["products", "categories", "inventory"]) - Gets schemas for multiple product-related tables
         """
         try:
-            import json
-            
             try:
-                import asyncpg
-                
                 activity.logger.info(f"Getting batch schemas for tables: {', '.join(table_names)}")
                 conn = await asyncio.wait_for(asyncpg.connect(**db_config), timeout=10.0)
                 
@@ -115,11 +114,7 @@ def create_database_tools(db_config: dict):
             - analyze_table_relationships(["users", "orders", "order_items"]) - Gets relationships for specific tables
         """
         try:
-            import json
-            
             try:
-                import asyncpg
-                
                 activity.logger.info(f"Analyzing table relationships for: {table_names or 'all tables'}")
                 conn = await asyncio.wait_for(asyncpg.connect(**db_config), timeout=10.0)
                 
@@ -233,7 +228,6 @@ def create_database_tools(db_config: dict):
             
             try:
                 try:
-                    import asyncpg
                     
                     activity.logger.info(f"Attempting to connect to database: {db_config['host']}:{db_config['port']}/{db_config['database']}")
                     # Create connection with timeout
@@ -261,7 +255,6 @@ def create_database_tools(db_config: dict):
                                 json_rows.append(dict(row))
                             
                             # Format as JSON for better readability and parsing
-                            import json
                             formatted_result = json.dumps(json_rows, indent=2, default=str)
                             
                             result_summary = f"Query executed successfully ({len(rows)} rows returned"
