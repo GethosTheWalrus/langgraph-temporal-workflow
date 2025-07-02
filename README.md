@@ -86,6 +86,17 @@ graph TB
         end
     end
     
+    subgraph "Tools & Services"
+        subgraph "Core Tools"
+            GT[General Tools<br/>think_step_by_step<br/>analyze_text]
+            DT[Database Tools<br/>query_database<br/>get_schemas]
+        end
+        subgraph "Specialized Tools"
+            CIT[Customer Tools<br/>get_profile<br/>calculate_clv]
+            CMT[Case Tools<br/>manage_state<br/>get_summary]
+        end
+    end
+    
     subgraph "Infrastructure"
         REDIS[(Redis<br/>Memory & State)]
         POSTGRES[(PostgreSQL<br/>Database)]
@@ -119,7 +130,25 @@ graph TB
     W2 --> RES
     W3 --> LA
     
-    %% Infrastructure connections (simplified)
+    %% Tool connections (simplified)
+    LA --> GT
+    LA --> DT
+    CIA --> GT
+    CIA --> CIT
+    CIA --> CMT
+    OIA --> GT
+    OIA --> DT
+    OIA --> CMT
+    RSA --> GT
+    RSA --> CMT
+    BIA --> GT
+    BIA --> CMT
+    CAA --> GT
+    CAA --> CMT
+    RES --> GT
+    RES --> CMT
+    
+    %% Infrastructure connections
     LA --> REDIS
     CIA --> REDIS
     OIA --> REDIS
@@ -128,9 +157,8 @@ graph TB
     CAA --> REDIS
     RES --> REDIS
     
-    LA --> POSTGRES
-    CIA --> POSTGRES
-    OIA --> POSTGRES
+    DT --> POSTGRES
+    CIT --> POSTGRES
     
     LA --> OLLAMA
     CIA --> OLLAMA
@@ -146,6 +174,7 @@ graph TB
     classDef workflow fill:#e8f5e8,stroke:#4caf50
     classDef worker fill:#fff3e0,stroke:#ff9800
     classDef activity fill:#fce4ec,stroke:#e91e63
+    classDef tool fill:#f1f8e9,stroke:#8bc34a
     classDef infra fill:#ffebee,stroke:#f44336
     
     class BC,IC,RC client
@@ -153,6 +182,7 @@ graph TB
     class AW,ICW,CRW workflow
     class W1,W2,W3 worker
     class LA,CIA,OIA,RSA,BIA,CAA,RES activity
+    class GT,DT,CIT,CMT tool
     class REDIS,POSTGRES,OLLAMA infra
 ```
 
