@@ -2,12 +2,15 @@
 
 This repository demonstrates how to set up a distributed LangGraph ReAct agent utilizing Redis for conversational memory management and Temporal for durable execution of agentic workflows.
 
-## Demo
+## Demos
 
+### Interactive Agentic Chatbot Workflow
 [![Watch the Demo](https://img.youtube.com/vi/DDVs6I3xeNo/maxresdefault.jpg)](https://youtu.be/DDVs6I3xeNo)
-
 *Click the image above to watch the demo video*
 
+### Agentic Customer Retention Workflow
+[![Watch the Demo](https://img.youtube.com/vi/tG9HzHaoRAg/maxresdefault.jpg)](https://youtu.be/tG9HzHaoRAg)
+*Click the image above to watch the demo video*
 
 ## Quick Start
 
