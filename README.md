@@ -2,6 +2,8 @@
 
 This repository demonstrates how to set up a distributed LangGraph ReAct agent utilizing Redis for conversational memory management and Temporal for durable execution of agentic workflows.
 
+Read more about how this code works and how to adapt it to your usecase on my website [here](https://miketoscano.com/blog/?post=langchain-temporal-workflow-processor)
+
 ## Demos
 
 ### Interactive Agentic Chatbot Workflow
@@ -31,6 +33,8 @@ docker compose up --build -d csharp-client -d
 
 ## Usage
 
+### Interactive Agentic Chatbot workflow
+
 To chat with the agent, send a signal via the Temporal [UI](http://localhost:8080)
 ```json
 [true, "Why should I use Temporal for durable workflow execution?"]
@@ -39,6 +43,24 @@ To chat with the agent, send a signal via the Temporal [UI](http://localhost:808
 To complete the workflow
 ```json
 [false]
+```
+
+### Agentic Customer Retention Workflow
+
+To approve a resolution suggestion
+```json
+{
+    "approve": true,
+    "followUp": ""
+}
+```
+
+To provide feedback and generate a new resolution suggestion
+```json
+{
+    "approve": false,
+    "followUp": "Please incorporate a timeline for the customer to reference"
+}
 ```
 
 ## Architecture Diagrams
