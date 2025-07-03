@@ -21,12 +21,12 @@ docker compose --profile temporal up --build -d
 
 2. Start the worker(s) - expand for additional workers
 ```bash
-docker compose up --build -d python-worker
+docker compose up --build -d python-worker -d
 ```
 
 3. Start the workflow
 ```bash
-docker compose up --build -d csharp-client
+docker compose up --build -d csharp-client -d
 ```
 
 ## Usage
